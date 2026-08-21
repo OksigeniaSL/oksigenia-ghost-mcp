@@ -1,0 +1,56 @@
+{
+  "name": "@oksigenia/ghost-mcp",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Model Context Protocol server for Ghost, aware of the Xpresiva theme. Operate your Ghost content by talking to an AI — locally, no telemetry. Wraps the ghost-md-publisher toolkit.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "oksigenia-ghost-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    ".env.example",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "ghost",
+    "mcp",
+    "model-context-protocol",
+    "xpresiva",
+    "markdown",
+    "admin-api",
+    "ai"
+  ],
+  "author": "Oksigenia",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OksigeniaSL/oksigenia-ghost-mcp.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@oksigenia/ghost-md-publisher": "file:../ghost-md-publisher",
+    "dotenv": "^17.4.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
