@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@oksigenia/ghost-md-publisher": "file:../ghost-md-publisher",
+    "@oksigenia/ghost-md-publisher": "^0.3.3",
     "dotenv": "^17.4.2",
     "zod": "^3.23.8"
   },
@@ -51,6 +51,6 @@
     "@types/node": "^22.20.1",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.11"
   }
 }

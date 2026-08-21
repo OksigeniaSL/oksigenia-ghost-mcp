@@ -4,8 +4,6 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server for **Ghost**
 
 It reuses the [`ghost-md-publisher`](https://github.com/OksigeniaSL/ghost-md-publisher) toolkit, so the MCP and the CLI share the same building blocks: the Admin API client, Markdown → native Ghost cards (callouts, bookmarks, video embeds, image captions), image processing (resize + EXIF clean) and the safe upsert.
 
-> Status: **Level 1** (conversational content ops). Levels 2 (Xpresiva-aware validation) and 4 (multilingual publishing) are on the roadmap.
-
 ## Requirements
 
 - Node.js 20.9+
@@ -38,7 +36,9 @@ Point your MCP client at the built server and pass your Ghost credentials as env
 }
 ```
 
-## Tools (Level 1)
+## Tools
+
+Content ops:
 
 | Tool | Kind | What it does |
 |---|---|---|
@@ -50,7 +50,23 @@ Point your MCP client at the built server and pass your Ghost credentials as env
 | `update_post` | write | Update the post with a given slug (preserves its status). |
 | `upload_image` | write | Process and upload a local image, returns the hosted URL. |
 
+Xpresiva-aware:
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `xpresiva_check_post` | read | Suggestions for a post: valid `custom_template`, feature-image coherence, alt text, excerpt length, reading time. |
+| `audit_site` | read | Scan recent posts and flag issues (no feature image, non-Xpresiva template, missing alt, stale drafts). |
+| `set_custom_template` | write | Set or clear a post's Xpresiva `custom_template`. |
+
+Multilingual:
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `publish_translation_set` | write | Create/update several language versions of one article, linked as an Xpresiva translation group (language tag `#es`/`#fr`/… + a shared pairing tag). Does not translate — you provide each version. |
+
 The Markdown accepts the same extras as the CLI: `::video <url>`, `::bookmark <url>` (fetches OpenGraph metadata), and Obsidian-style callouts `> [!warning] ...` → native Ghost cards.
+
+> Note: Ghost's Admin API does not expose the theme's `custom_theme_settings` to integration tokens (it returns 403), so "Xpresiva-aware" means the theme's baked-in conventions (template names, the 7 locales, the pairing-tag scheme), not reading the live theme config. Per-card member/paid visibility of callouts lives in the Ghost editor model, not the HTML, so it isn't set through this server.
 
 ### Guardrails
 
@@ -61,8 +77,8 @@ The Markdown accepts the same extras as the CLI: `::video <url>`, `::bookmark <u
 
 ## Roadmap
 
-- Level 2 — Xpresiva-aware: validate `custom_template`, feature-image style and section tags; site audits.
-- Level 4 — multilingual: publish a set of translations linked by Xpresiva's internal `#tr-N` pairing.
+- Scheduling helpers and richer audits.
+- Inline local-image handling improvements.
 
 ## License
 

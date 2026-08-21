@@ -15,6 +15,22 @@ function client(): any {
   return _client;
 }
 
+// ── Xpresiva knowledge (the theme's conventions the MCP is aware of) ──────────
+// The theme's own custom_theme_settings can't be read via the Admin API (Ghost
+// returns 403 for integration tokens), so "Xpresiva-aware" means these baked-in
+// conventions, not reading the live theme config.
+export const XPRESIVA_TEMPLATES = ['custom-wide-feature-image', 'custom-full-feature-image'];
+export const XPRESIVA_LOCALES = ['en', 'es', 'fr', 'de', 'pt', 'it', 'nl'];
+const RESERVED_INTERNAL = new Set([
+  ...XPRESIVA_LOCALES.map((l) => `hash-${l}`),
+  'hash-historical',
+]);
+
+function readingTime(html: string | undefined): number {
+  const words = (html || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 export async function verify(): Promise<{ ok: boolean; site?: any }> {
   const c = client();
   await verifyClient(c); // throws with a clear message if URL/key are wrong
@@ -168,4 +184,136 @@ export async function writePost(args: WritePostArgs): Promise<
     return { created: true, post: { id: p.id, url: p.url, status: p.status, slug: p.slug } };
   }
   throw new Error('Unexpected upsert result.');
+}
+
+// ── Level 2: Xpresiva-aware checks (read/suggest only) ───────────────────────
+
+function checkFields(p: {
+  custom_template?: string;
+  feature_image?: string;
+  feature_image_alt?: string;
+  excerpt?: string;
+  html?: string;
+}): string[] {
+  const findings: string[] = [];
+  const tpl = p.custom_template || '';
+  if (tpl && !XPRESIVA_TEMPLATES.includes(tpl)) {
+    findings.push(`custom_template "${tpl}" is not an Xpresiva template (expected one of ${XPRESIVA_TEMPLATES.join(', ')}, or empty for the default).`);
+  }
+  if (XPRESIVA_TEMPLATES.includes(tpl) && !p.feature_image) {
+    findings.push(`template "${tpl}" is built around a feature image, but the post has none.`);
+  }
+  if (p.feature_image && !p.feature_image_alt) {
+    findings.push('feature image has no alt text (hurts SEO and accessibility).');
+  }
+  if (p.excerpt && p.excerpt.length > 300) {
+    findings.push(`excerpt is ${p.excerpt.length} chars; Ghost rejects custom_excerpt over 300.`);
+  }
+  return findings;
+}
+
+export async function checkPost(args: { id?: string; slug?: string }): Promise<{ slug: string; title: string; reading_time_min: number; findings: string[] }> {
+  const p = await getPost(args);
+  return {
+    slug: p.slug,
+    title: p.title,
+    reading_time_min: readingTime(p.html),
+    findings: checkFields({ custom_template: p.custom_template, feature_image: p.feature_image, feature_image_alt: p.feature_image_alt, excerpt: p.excerpt, html: p.html }),
+  };
+}
+
+export async function auditSite(args: { limit?: number; stale_days?: number }): Promise<{ scanned: number; flagged: any[]; truncated: boolean }> {
+  const cap = Math.min(args.limit ?? 100, 100);
+  const res = await client().posts.browse({
+    limit: cap,
+    order: 'updated_at DESC',
+    fields: 'id,title,slug,status,updated_at,feature_image,feature_image_alt,custom_template,custom_excerpt',
+  });
+  const staleDays = args.stale_days ?? 90;
+  const staleBefore = Date.now() - staleDays * 86400_000;
+  const flagged: any[] = [];
+  for (const p of res) {
+    const issues = checkFields({
+      custom_template: p.custom_template,
+      feature_image: p.feature_image,
+      feature_image_alt: p.feature_image_alt,
+      excerpt: p.custom_excerpt,
+    });
+    if (!p.feature_image) issues.push('no feature image.');
+    if (p.status === 'draft' && p.updated_at && Date.parse(p.updated_at) < staleBefore) {
+      issues.push(`stale draft (not touched in ${staleDays}+ days).`);
+    }
+    if (issues.length) flagged.push({ slug: p.slug, title: p.title, status: p.status, issues });
+  }
+  return { scanned: res.length, flagged, truncated: res.length >= cap };
+}
+
+export async function setCustomTemplate(args: { id?: string; slug?: string; template: string }): Promise<{ slug: string; custom_template: string }> {
+  const tpl = args.template === 'default' ? '' : args.template;
+  if (tpl && !XPRESIVA_TEMPLATES.includes(tpl)) {
+    throw new Error(`"${tpl}" is not an Xpresiva template. Use one of ${XPRESIVA_TEMPLATES.join(', ')}, or "default" to clear it.`);
+  }
+  if (!args.id && !args.slug) throw new Error('Provide either id or slug.');
+  const key = args.id ? { id: args.id } : { slug: args.slug };
+  const existing = await client().posts.read({ ...key, fields: 'id,slug,updated_at' });
+  const updated = await client().posts.edit({ id: existing.id, updated_at: existing.updated_at, custom_template: tpl || null });
+  return { slug: updated.slug, custom_template: updated.custom_template || '(default)' };
+}
+
+// ── Level 4: multilingual — publish a set of linked translations ─────────────
+
+export interface TranslationVersion {
+  locale: string;
+  title: string;
+  markdown: string;
+  slug?: string;
+  tags?: string[];
+  status?: 'draft' | 'published' | 'scheduled';
+  excerpt?: string;
+  feature_image?: string;
+  feature_image_alt?: string;
+  base_dir?: string;
+}
+
+export async function publishTranslationSet(args: { pair: string; versions: TranslationVersion[]; force?: boolean }): Promise<{ pair: string; results: any[] }> {
+  // The translation-group tag is a single "free" internal tag shared by every
+  // version (Xpresiva pairs them by it, e.g. #tr-1). It must not be a language
+  // or the #historical tag.
+  const bare = args.pair.replace(/^#/, '');
+  if (RESERVED_INTERNAL.has(`hash-${bare}`)) {
+    throw new Error(`"${args.pair}" is a reserved tag (a language or #historical); pick a pairing tag like "tr-1".`);
+  }
+  const pairTag = `#${bare}`;
+
+  const results: any[] = [];
+  for (const v of args.versions) {
+    if (!XPRESIVA_LOCALES.includes(v.locale)) {
+      results.push({ locale: v.locale, error: `unknown locale (Xpresiva supports ${XPRESIVA_LOCALES.join(', ')}).` });
+      continue;
+    }
+    // language internal tag + the shared pairing tag, plus any public tags
+    const tags = [...(v.tags ?? []), `#${v.locale}`, pairTag];
+    try {
+      const r = await writePost({
+        title: v.title,
+        markdown: v.markdown,
+        slug: v.slug,
+        tags,
+        status: v.status ?? 'draft',
+        excerpt: v.excerpt,
+        feature_image: v.feature_image,
+        feature_image_alt: v.feature_image_alt,
+        base_dir: v.base_dir,
+        force: args.force ?? false,
+      });
+      if ('blocked' in r && r.blocked) {
+        results.push({ locale: v.locale, blocked: true, existing_slug: r.existing.slug, note: 'slug exists; pass force to overwrite.' });
+      } else {
+        results.push({ locale: v.locale, ...(r as any).post });
+      }
+    } catch (err: any) {
+      results.push({ locale: v.locale, error: err?.message || String(err) });
+    }
+  }
+  return { pair: pairTag, results };
 }

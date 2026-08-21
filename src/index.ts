@@ -168,6 +168,90 @@ server.registerTool(
   guard(async (args) => ok(await ghost.uploadImage(args)))
 );
 
+// ── Level 2: Xpresiva-aware ─────────────────────────────────────────────────
+
+server.registerTool(
+  'xpresiva_check_post',
+  {
+    title: 'Check a post against Xpresiva conventions',
+    description:
+      'Read a post and report suggestions for the Xpresiva theme: valid custom_template, feature-image ' +
+      'coherence, missing alt text, excerpt length, reading time. Suggests only, never writes.',
+    inputSchema: {
+      id: z.string().optional().describe('Post id.'),
+      slug: z.string().optional().describe('Post slug (use this or id).'),
+    },
+    annotations: { ...READ, title: 'Xpresiva post check' },
+  },
+  guard(async (args) => ok(await ghost.checkPost(args)))
+);
+
+server.registerTool(
+  'audit_site',
+  {
+    title: 'Audit posts for Xpresiva issues',
+    description:
+      'Scan recent posts and flag ones with issues: no feature image, non-Xpresiva custom_template, ' +
+      'missing alt text, over-long excerpts, and stale drafts. Read-only.',
+    inputSchema: {
+      limit: z.number().int().min(1).max(100).optional().describe('How many recent posts to scan (default/max 100).'),
+      stale_days: z.number().int().optional().describe('Flag drafts untouched for this many days (default 90).'),
+    },
+    annotations: { ...READ, title: 'Audit the site' },
+  },
+  guard(async (args) => ok(await ghost.auditSite(args)))
+);
+
+server.registerTool(
+  'set_custom_template',
+  {
+    title: 'Set a post custom template',
+    description:
+      'Set (or clear) a post\'s Xpresiva custom_template. Valid values: ' +
+      ghost.XPRESIVA_TEMPLATES.join(', ') + ', or "default" to clear it.',
+    inputSchema: {
+      id: z.string().optional().describe('Post id.'),
+      slug: z.string().optional().describe('Post slug (use this or id).'),
+      template: z.string().describe(`One of ${ghost.XPRESIVA_TEMPLATES.join(', ')}, or "default".`),
+    },
+    annotations: { ...WRITE, destructiveHint: false, idempotentHint: true, title: 'Set custom template' },
+  },
+  guard(async (args) => ok(await ghost.setCustomTemplate(args)))
+);
+
+// ── Level 4: multilingual ────────────────────────────────────────────────────
+
+const translationVersion = z.object({
+  locale: z.enum(['en', 'es', 'fr', 'de', 'pt', 'it', 'nl']).describe('Language of this version.'),
+  title: z.string(),
+  markdown: z.string(),
+  slug: z.string().optional(),
+  tags: z.array(z.string()).optional().describe('Public tags for this version (language/pair tags are added automatically).'),
+  status: z.enum(['draft', 'published', 'scheduled']).optional(),
+  excerpt: z.string().optional(),
+  feature_image: z.string().optional(),
+  feature_image_alt: z.string().optional(),
+  base_dir: z.string().optional(),
+});
+
+server.registerTool(
+  'publish_translation_set',
+  {
+    title: 'Publish a set of linked translations',
+    description:
+      'Create/update several language versions of one article, linked as an Xpresiva translation group. ' +
+      'Each version gets its language tag (#es, #fr, …) and a shared pairing tag so the theme cross-links ' +
+      'them. This tool does NOT translate — provide each version\'s title and Markdown yourself. Drafts by default.',
+    inputSchema: {
+      pair: z.string().describe('Pairing tag shared by all versions, e.g. "tr-1" (an internal tag).'),
+      versions: z.array(translationVersion).min(1).describe('One entry per language version.'),
+      force: z.boolean().optional().describe('Overwrite existing posts with matching slugs (default false).'),
+    },
+    annotations: { ...WRITE, destructiveHint: false, idempotentHint: false, title: 'Publish translation set' },
+  },
+  guard(async (args: any) => ok(await ghost.publishTranslationSet(args)))
+);
+
 // ── boot ────────────────────────────────────────────────────────────────────
 
 async function main() {
