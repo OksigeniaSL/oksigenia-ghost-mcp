@@ -11,23 +11,16 @@ It reuses the [`ghost-md-publisher`](https://github.com/OksigeniaSL/ghost-md-pub
 - Node.js 20.9+
 - A Ghost site with an Admin API key (Settings → Integrations → Add custom integration).
 
-## Install & build
-
-```bash
-npm install
-npm run build
-```
-
 ## Configure your MCP client
 
-Point your MCP client at the built server and pass your Ghost credentials as env. Example (Claude Desktop `claude_desktop_config.json`):
+No install needed — your MCP client runs it on demand with `npx`. Point it at the package and pass your Ghost credentials as env. Example (Claude Desktop `claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "ghost": {
-      "command": "node",
-      "args": ["/absolute/path/to/oksigenia-ghost-mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@oksigenia/ghost-mcp"],
       "env": {
         "GHOST_URL": "https://your-site.com",
         "GHOST_ADMIN_API_KEY": "id:secret",
@@ -37,6 +30,17 @@ Point your MCP client at the built server and pass your Ghost credentials as env
   }
 }
 ```
+
+To pin a version, use `"@oksigenia/ghost-mcp@0.1.0"`. To install it globally instead: `npm install -g @oksigenia/ghost-mcp` (the command is then `oksigenia-ghost-mcp`).
+
+## From source (development)
+
+```bash
+npm install
+npm run build
+```
+
+Then point your MCP client at the built server with `"command": "node"` and `"args": ["/absolute/path/to/oksigenia-ghost-mcp/dist/index.js"]`.
 
 ## Tools
 
