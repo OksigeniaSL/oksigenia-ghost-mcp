@@ -4,7 +4,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server for **Ghost**
 
 ![Demo: creating and publishing to Ghost by talking to an AI](media/demo.gif)
 
-▶ [Watch the full demo (48s, with sound)](media/demo.mp4)
+▶ [Watch the full demo with sound](https://raw.githubusercontent.com/OksigeniaSL/oksigenia-ghost-mcp/master/media/demo.mp4) (48s)
 
 It reuses the [`ghost-md-publisher`](https://github.com/OksigeniaSL/ghost-md-publisher) toolkit, so the MCP and the CLI share the same building blocks: the Admin API client, Markdown → native Ghost cards (callouts, bookmarks, video embeds, image captions), image processing (resize + EXIF clean) and the safe upsert.
 
