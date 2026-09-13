@@ -1,0 +1,50 @@
+name: Publish
+
+# Publica a npm con Trusted Publishing (OIDC) — sin tokens, igual que @oksigenia/*.
+# Dispara con un tag "v*" (p.ej. v0.1.0) o manualmente. Guarda anti-duplicado:
+# si la versión de package.json ya está en npm, se salta (no es error).
+#
+# Requisito ÚNICO de una vez (lo hace Enrique en npmjs.com):
+#   configurar el Trusted Publisher del paquete "@oksigenia/ghost-mcp" →
+#   repo OksigeniaSL/oksigenia-ghost-mcp, workflow publish.yml.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # imprescindible para Trusted Publishing OIDC
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Upgrade npm (Trusted Publishing requiere 11.5.1+)
+        run: npm install -g npm@latest
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish (salta si la versión ya está en npm)
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          LOCAL=$(node -p "require('./package.json').version")
+          if npm view "${PKG}@${LOCAL}" version >/dev/null 2>&1; then
+            echo "${PKG}@${LOCAL} ya está en npm — me lo salto."
+          else
+            npm publish --provenance --access public
+          fi
