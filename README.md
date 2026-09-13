@@ -2,13 +2,7 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server for **Ghost**, aware of the **Xpresiva** theme. Operate your Ghost content by talking to an AI — locally, with no telemetry, straight against your own Ghost.
 
-[![Watch the demo — creating and publishing to Ghost by talking to an AI](media/thumb.png)](https://raw.githubusercontent.com/OksigeniaSL/oksigenia-ghost-mcp/master/media/demo.mp4)
-
-
-
 https://github.com/user-attachments/assets/8f252db7-9198-48e2-b2f4-42fd408a349d
-
-
 
 It reuses the [`ghost-md-publisher`](https://github.com/OksigeniaSL/ghost-md-publisher) toolkit, so the MCP and the CLI share the same building blocks: the Admin API client, Markdown → native Ghost cards (callouts, bookmarks, video embeds, image captions), image processing (resize + EXIF clean) and the safe upsert.
 
